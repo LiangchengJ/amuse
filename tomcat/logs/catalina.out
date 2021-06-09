@@ -1,6 +1,0 @@
-NOTE: Picked up JDK_JAVA_OPTIONS:  --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
-Error: Could not find or load main class org.apache.catalina.startup.Bootstrap
-Caused by: java.lang.ClassNotFoundException: org.apache.catalina.startup.Bootstrap
-NOTE: Picked up JDK_JAVA_OPTIONS:  --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
-Error: Could not find or load main class org.apache.catalina.startup.Bootstrap
-Caused by: java.lang.ClassNotFoundException: org.apache.catalina.startup.Bootstrap
