@@ -22,8 +22,6 @@ import java.util.Objects;
  * Static methods pertaining to ASCII characters (those in the range of values {@code 0x00} through
  * {@code 0x7F}), and to strings containing such characters.
  *
- * <p>ASCII utilities also exist in other classes of this package:
- *
  * @author Craig Berry
  * @author Gregory Kick
  * @since 7.0
