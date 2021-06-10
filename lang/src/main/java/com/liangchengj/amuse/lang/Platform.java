@@ -23,6 +23,7 @@
 
 package com.liangchengj.amuse.lang;
 
+import com.liangchengj.amuse.lang.reflect.Reflection;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -107,7 +108,7 @@ public class Platform {
     return isOs("linux");
   }
 
-  public static boolean isOSX() {
+  public static boolean isMacOS() {
     return isOs("mac");
   }
 
@@ -117,6 +118,14 @@ public class Platform {
 
   public static boolean isWindows() {
     return isOs("win");
+  }
+
+  public static boolean isAndroid() {
+    return isLinux() && Reflection.canFindClass("android.os.Process");
+  }
+
+  public static boolean isUnity() {
+    return isLinux() && Reflection.canFindClass("com.unity3d.player.UnityPlayer");
   }
 
   private static boolean isOs(String osname) {
@@ -270,7 +279,7 @@ public class Platform {
     if (!hasSA()) return false;
     if (isLinux()) {
       return canPtraceAttachLinux();
-    } else if (isOSX()) {
+    } else if (isMacOS()) {
       return canAttachOSX();
     } else {
       // Other platforms expected to work:
@@ -333,7 +342,7 @@ public class Platform {
   public static String sharedLibraryExt() {
     if (isWindows()) {
       return "dll";
-    } else if (isOSX()) {
+    } else if (isMacOS()) {
       return "dylib";
     } else {
       return "so";
@@ -346,7 +355,7 @@ public class Platform {
   public static String sharedLibraryPathVariableName() {
     if (isWindows()) {
       return "PATH";
-    } else if (isOSX()) {
+    } else if (isMacOS()) {
       return "DYLD_LIBRARY_PATH";
     } else if (isAix()) {
       return "LIBPATH";

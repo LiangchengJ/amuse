@@ -26,7 +26,7 @@ public abstract class AES {
   private static final String ERR_MSG_KEY = "The length of the key is not sixteen.";
   private static final String ERR_MSG_IV = "The length of the iv is not sixteen.";
 
-  public static byte[] commonEncrypt(byte[] src, String key) {
+  public static byte[] encrypt(byte[] src, String key) {
     if (key.length() != 16) {
       throw new SecurityException(ERR_MSG_KEY);
     }
@@ -44,7 +44,7 @@ public abstract class AES {
     }
   }
 
-  public static byte[] commonDecrypt(byte[] encrypted, String key) {
+  public static byte[] decrypt(byte[] encrypted, String key) {
     if (key.length() != 16) {
       throw new SecurityException(ERR_MSG_KEY);
     }
@@ -72,21 +72,21 @@ public abstract class AES {
     try {
       Cipher cipher = Cipher.getInstance(TRANSFORMATION_NO_PADDING);
       int blockSize = cipher.getBlockSize();
-      int rsltLen = src.length;
-      if (rsltLen % blockSize != 0) {
+      int retLen = src.length;
+      if (retLen % blockSize != 0) {
         // Assign a new length to the array to prevent the array from throwing an exception out of
         // bounds.
-        rsltLen += blockSize - rsltLen % blockSize;
+        retLen += blockSize - retLen % blockSize;
       }
 
-      byte[] rslt = new byte[rsltLen];
-      System.arraycopy(src, 0, rslt, 0, src.length);
+      final byte[] ret = new byte[retLen];
+      System.arraycopy(src, 0, ret, 0, src.length);
 
       SecretKeySpec sks = new SecretKeySpec(key.getBytes(), ALGORITHM);
       IvParameterSpec ips = new IvParameterSpec(iv.getBytes());
 
       cipher.init(Cipher.ENCRYPT_MODE, sks, ips);
-      return Base64.encodeToString(cipher.doFinal(rslt)).trim().getBytes();
+      return Base64.encodeToString(cipher.doFinal(ret)).trim().getBytes();
     } catch (NoSuchAlgorithmException
         | NoSuchPaddingException
         | InvalidKeyException

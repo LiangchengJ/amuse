@@ -25,7 +25,7 @@ public final class Stream {
    * @throws IOException
    */
   private static void onReading(
-      ReadInputListener readInputListener, byte[] buf, int len, boolean finished)
+          IReadInputListener readInputListener, byte[] buf, int len, boolean finished)
       throws IOException {
     if (null != readInputListener) {
       readInputListener.onReading(Arrays.copyOf(buf, len), finished);
@@ -37,7 +37,7 @@ public final class Stream {
    * @param readInputListener
    * @throws IOException
    */
-  public static void readInputStream(InputStream inputStream, ReadInputListener readInputListener)
+  public static void readInputStream(InputStream inputStream, IReadInputListener readInputListener)
       throws IOException {
     int len, endLen = 0;
     final byte[] buf = newBuffer(1024);
@@ -89,7 +89,7 @@ public final class Stream {
    */
   public static void readAndWrite(InputStream inputStream, OutputStream... outputStreams)
       throws IOException {
-    ReadInputListener readInputListener = null;
+    IReadInputListener readInputListener = null;
     if (null != outputStreams) {
       readInputListener =
           (buf, finished) -> {

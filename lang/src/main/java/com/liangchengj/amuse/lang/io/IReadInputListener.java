@@ -7,6 +7,6 @@ import java.io.IOException;
  *
  * @author Liangcheng Juves
  */
-public interface ReadInputListener {
+public interface IReadInputListener {
   void onReading(byte[] buf, boolean finished) throws IOException;
 }

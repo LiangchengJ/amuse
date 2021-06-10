@@ -1,5 +1,7 @@
 package com.liangchengj.amuse.codec;
 
+import com.liangchengj.amuse.lang.Platform;
+import com.liangchengj.amuse.lang.util.Params;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Objects;
@@ -12,24 +14,22 @@ import java.util.Objects;
 public final class Base64 {
   private Base64() {}
 
-  private static boolean reflectAndroid;
+  private static boolean prepared;
 
-  private static Class<?> reflectAndroidBase64Class;
-  private static Class<?> reflectJDKBase64Class;
+  private static Class<?> reflectClass;
 
   private static final String JDK_BASE64_CLASS_NAME = "java.util.Base64";
 
   static {
     try {
-      reflectAndroidBase64Class = Class.forName(JDK_BASE64_CLASS_NAME.replace("java", "android"));
-      reflectAndroid = true;
-    } catch (ClassNotFoundException e) {
-      reflectAndroid = false;
-      try {
-        reflectJDKBase64Class = Class.forName(JDK_BASE64_CLASS_NAME);
-      } catch (ClassNotFoundException ex) {
-        // Ignore
+      if (Platform.isAndroid()) {
+        reflectClass = Class.forName(JDK_BASE64_CLASS_NAME.replace("java", "android"));
+      } else {
+        reflectClass = Class.forName(JDK_BASE64_CLASS_NAME);
       }
+      prepared = true;
+    } catch (ClassNotFoundException e) {
+      prepared = false;
     }
   }
 
@@ -71,12 +71,10 @@ public final class Base64 {
 
     String codecMethodName =
         androidBase64CodecType == AndroidBase64CodecType.ENCODE ? "encode" : "decode";
-    String unsupportedOperationMsg =
+    String errMsg =
         String.format("Can't invoke android.util.Base64.%s(byte[], int)", codecMethodName);
 
-    if (null == reflectAndroidBase64Class) {
-      throw new UnsupportedOperationException(unsupportedOperationMsg);
-    }
+    Params.requireNonUnsupportedOperation(null != reflectClass, errMsg);
 
     try {
       final class FieldReflection {
@@ -84,9 +82,7 @@ public final class Base64 {
 
         private int getFlag(AndroidBase64Flag androidBase64Flag)
             throws NoSuchFieldException, IllegalAccessException {
-          return reflectAndroidBase64Class
-              .getDeclaredField(androidBase64Flag.name)
-              .getInt(reflectAndroidBase64Class);
+          return reflectClass.getDeclaredField(androidBase64Flag.name).getInt(reflectClass);
         }
       }
       FieldReflection fieldReflection = new FieldReflection();
@@ -97,14 +93,13 @@ public final class Base64 {
         }
       }
 
-      Method codecMethod =
-          reflectAndroidBase64Class.getDeclaredMethod(codecMethodName, byte[].class, int.class);
-      return (byte[]) codecMethod.invoke(reflectAndroidBase64Class, input, flags);
+      Method codecMethod = reflectClass.getDeclaredMethod(codecMethodName, byte[].class, int.class);
+      return (byte[]) codecMethod.invoke(reflectClass, input, flags);
     } catch (NoSuchFieldException
         | IllegalAccessException
         | NoSuchMethodException
         | InvocationTargetException e) {
-      throw new UnsupportedOperationException(unsupportedOperationMsg, e);
+      throw new AssertionError(errMsg, e);
     }
   }
 
@@ -141,40 +136,35 @@ public final class Base64 {
     String coderClassSimpleName = isByEncode ? "Encoder" : "Decoder";
     String codecMethodName = isByEncode ? "encode" : "decode";
 
-    String unsupportedOperationMsg =
+    String errMsg =
         String.format(
             "Can't invoke java.util.Base64.%s.%s(byte[])", coderClassSimpleName, codecMethodName);
 
-    if (null == reflectJDKBase64Class) {
-      throw new UnsupportedOperationException(unsupportedOperationMsg);
-    }
+    Params.requireNonUnsupportedOperation(null != reflectClass, errMsg);
 
     try {
-      Method reflectionCoderMethod =
-          reflectJDKBase64Class.getDeclaredMethod(jdkBase64CodecType.methodName);
-      Object coder = reflectionCoderMethod.invoke(reflectJDKBase64Class);
+      Method reflectionCoderMethod = reflectClass.getDeclaredMethod(jdkBase64CodecType.methodName);
+      Object coder = reflectionCoderMethod.invoke(reflectClass);
 
       Method codecMethod = coder.getClass().getDeclaredMethod(codecMethodName, byte[].class);
       return (byte[]) codecMethod.invoke(coder, src);
     } catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-      throw new UnsupportedOperationException(unsupportedOperationMsg, e);
+      throw new AssertionError(errMsg, e);
     }
   }
 
   public static byte[] encodeToBytes(byte[] src) {
-    try {
-      if (reflectAndroid) {
-        // Invoke android.util.Base64.encode(byte[], int)
-        // Such as: android.util.Base64.encode(src, android.util.Base64.NO_WRAP);
-        return invokeAndroidBase64Codec(
-            AndroidBase64CodecType.ENCODE, src, AndroidBase64Flag.NO_WRAP);
-      } else {
-        // Invoke java.util.Base64.Encoder.encode(byte[])
-        // Such as: java.util.Base64.getEncoder().encode(src);
-        return invokeJDKBase64Codec(src, JDKBase64CodecType.NORMAL_ENCODE);
-      }
-    } catch (UnsupportedOperationException e) {
-      throw new AssertionError("Can't invoke Base64.encodeToBytes(byte[])", e);
+    Params.requireNonUnsupportedOperation(prepared, "Can't invoke Base64.encodeToBytes(byte[])");
+
+    if (Platform.isAndroid()) {
+      // Invoke android.util.Base64.encode(byte[], int)
+      // Such as: android.util.Base64.encode(src, android.util.Base64.NO_WRAP);
+      return invokeAndroidBase64Codec(
+          AndroidBase64CodecType.ENCODE, src, AndroidBase64Flag.NO_WRAP);
+    } else {
+      // Invoke java.util.Base64.Encoder.encode(byte[])
+      // Such as: java.util.Base64.getEncoder().encode(src);
+      return invokeJDKBase64Codec(src, JDKBase64CodecType.NORMAL_ENCODE);
     }
   }
 
@@ -191,19 +181,17 @@ public final class Base64 {
   }
 
   public static byte[] decodeToBytes(byte[] src) {
-    try {
-      if (reflectAndroid) {
-        // Invoke android.util.Base64.decode(byte[], int)
-        // Such as: android.util.Base64.decode(src, android.util.Base64.NO_WRAP);
-        return invokeAndroidBase64Codec(
-            AndroidBase64CodecType.DECODE, src, AndroidBase64Flag.NO_WRAP);
-      } else {
-        // Invoke java.util.Base64.Decoder.decode(byte[])
-        // Such as: java.util.Base64.getDecoder().decode(src);
-        return invokeJDKBase64Codec(src, JDKBase64CodecType.NORMAL_DECODE);
-      }
-    } catch (UnsupportedOperationException e) {
-      throw new AssertionError("Can't invoke Base64.decodeToBytes(byte[])", e);
+    Params.requireNonUnsupportedOperation(prepared, "Can't invoke Base64.decodeToBytes(byte[])");
+
+    if (Platform.isAndroid()) {
+      // Invoke android.util.Base64.decode(byte[], int)
+      // Such as: android.util.Base64.decode(src, android.util.Base64.NO_WRAP);
+      return invokeAndroidBase64Codec(
+          AndroidBase64CodecType.DECODE, src, AndroidBase64Flag.NO_WRAP);
+    } else {
+      // Invoke java.util.Base64.Decoder.decode(byte[])
+      // Such as: java.util.Base64.getDecoder().decode(src);
+      return invokeJDKBase64Codec(src, JDKBase64CodecType.NORMAL_DECODE);
     }
   }
 
@@ -220,18 +208,17 @@ public final class Base64 {
   }
 
   public static byte[] mimeEncodeToBytes(byte[] src) {
-    try {
-      if (reflectAndroid) {
-        // Invoke android.util.Base64.encode(byte[], int)
-        // Such as: android.util.Base64.encode(src, android.util.Base64.CRLF);
-        return invokeAndroidBase64Codec(AndroidBase64CodecType.ENCODE, src, AndroidBase64Flag.CRLF);
-      } else {
-        // Invoke java.util.Base64.Encoder.encode(byte[])
-        // Such as: java.util.Base64.getMimeEncoder().encode(src);
-        return invokeJDKBase64Codec(src, JDKBase64CodecType.MIME_ENCODE);
-      }
-    } catch (UnsupportedOperationException e) {
-      throw new AssertionError("Can't invoke Base64.mimeEncodeToBytes(byte[])", e);
+    Params.requireNonUnsupportedOperation(
+        prepared, "Can't invoke Base64.mimeEncodeToBytes(byte[])");
+
+    if (Platform.isAndroid()) {
+      // Invoke android.util.Base64.encode(byte[], int)
+      // Such as: android.util.Base64.encode(src, android.util.Base64.CRLF);
+      return invokeAndroidBase64Codec(AndroidBase64CodecType.ENCODE, src, AndroidBase64Flag.CRLF);
+    } else {
+      // Invoke java.util.Base64.Encoder.encode(byte[])
+      // Such as: java.util.Base64.getMimeEncoder().encode(src);
+      return invokeJDKBase64Codec(src, JDKBase64CodecType.MIME_ENCODE);
     }
   }
 
@@ -248,18 +235,17 @@ public final class Base64 {
   }
 
   public static byte[] mimeDecodeToBytes(byte[] src) {
-    try {
-      if (reflectAndroid) {
-        // Invoke android.util.Base64.decode(byte[], int)
-        // Such as: android.util.Base64.decode(src, android.util.Base64.CRLF);
-        return invokeAndroidBase64Codec(AndroidBase64CodecType.DECODE, src, AndroidBase64Flag.CRLF);
-      } else {
-        // Invoke java.util.Base64.Encoder.decode(byte[])
-        // Such as: java.util.Base64.getMimeDecoder().decode(src);
-        return invokeJDKBase64Codec(src, JDKBase64CodecType.MIME_DECODE);
-      }
-    } catch (UnsupportedOperationException e) {
-      throw new AssertionError("Can't invoke Base64.mimeDecodeToBytes(byte[])", e);
+    Params.requireNonUnsupportedOperation(
+        prepared, "Can't invoke Base64.mimeDecodeToBytes(byte[])");
+
+    if (Platform.isAndroid()) {
+      // Invoke android.util.Base64.decode(byte[], int)
+      // Such as: android.util.Base64.decode(src, android.util.Base64.CRLF);
+      return invokeAndroidBase64Codec(AndroidBase64CodecType.DECODE, src, AndroidBase64Flag.CRLF);
+    } else {
+      // Invoke java.util.Base64.Encoder.decode(byte[])
+      // Such as: java.util.Base64.getMimeDecoder().decode(src);
+      return invokeJDKBase64Codec(src, JDKBase64CodecType.MIME_DECODE);
     }
   }
 
@@ -276,23 +262,21 @@ public final class Base64 {
   }
 
   public static byte[] urlEncodeToBytes(byte[] src) {
-    try {
-      if (reflectAndroid) {
-        // Invoke android.util.Base64.encode(byte[], int)
-        // Such as: android.util.Base64.encode(src, android.util.Base64.URL_SAFE |
-        // android.util.Base64.NO_WRAP);
-        return invokeAndroidBase64Codec(
-            AndroidBase64CodecType.ENCODE,
-            src,
-            AndroidBase64Flag.URL_SAFE,
-            AndroidBase64Flag.NO_WRAP);
-      } else {
-        // Invoke java.util.Base64.Encoder.encode(byte[])
-        // Such as: java.util.Base64.getUrlEncoder().encode(src);
-        return invokeJDKBase64Codec(src, JDKBase64CodecType.URL_SAFE_ENCODE);
-      }
-    } catch (UnsupportedOperationException e) {
-      throw new AssertionError("Can't invoke Base64.urlEncodeToBytes(byte[])", e);
+    Params.requireNonUnsupportedOperation(prepared, "Can't invoke Base64.urlEncodeToBytes(byte[])");
+
+    if (Platform.isAndroid()) {
+      // Invoke android.util.Base64.encode(byte[], int)
+      // Such as: android.util.Base64.encode(src, android.util.Base64.URL_SAFE |
+      // android.util.Base64.NO_WRAP);
+      return invokeAndroidBase64Codec(
+          AndroidBase64CodecType.ENCODE,
+          src,
+          AndroidBase64Flag.URL_SAFE,
+          AndroidBase64Flag.NO_WRAP);
+    } else {
+      // Invoke java.util.Base64.Encoder.encode(byte[])
+      // Such as: java.util.Base64.getUrlEncoder().encode(src);
+      return invokeJDKBase64Codec(src, JDKBase64CodecType.URL_SAFE_ENCODE);
     }
   }
 
@@ -309,23 +293,21 @@ public final class Base64 {
   }
 
   public static byte[] urlDecodeToBytes(byte[] src) {
-    try {
-      if (reflectAndroid) {
-        // Invoke android.util.Base64.decode(byte[], int)
-        // Such as: android.util.Base64.decode(src, android.util.Base64.URL_SAFE |
-        // android.util.Base64.NO_WRAP);
-        return invokeAndroidBase64Codec(
-            AndroidBase64CodecType.DECODE,
-            src,
-            AndroidBase64Flag.URL_SAFE,
-            AndroidBase64Flag.NO_WRAP);
-      } else {
-        // Invoke java.util.Base64.Encoder.decode(byte[])
-        // Such as: java.util.Base64.getUrlDecoder().decode(src);
-        return invokeJDKBase64Codec(src, JDKBase64CodecType.URL_SAFE_DECODE);
-      }
-    } catch (UnsupportedOperationException e) {
-      throw new AssertionError("Can't invoke Base64.urlDecodeToBytes(byte[])", e);
+    Params.requireNonUnsupportedOperation(prepared, "Can't invoke Base64.urlDecodeToBytes(byte[])");
+
+    if (Platform.isAndroid()) {
+      // Invoke android.util.Base64.decode(byte[], int)
+      // Such as: android.util.Base64.decode(src, android.util.Base64.URL_SAFE |
+      // android.util.Base64.NO_WRAP);
+      return invokeAndroidBase64Codec(
+          AndroidBase64CodecType.DECODE,
+          src,
+          AndroidBase64Flag.URL_SAFE,
+          AndroidBase64Flag.NO_WRAP);
+    } else {
+      // Invoke java.util.Base64.Encoder.decode(byte[])
+      // Such as: java.util.Base64.getUrlDecoder().decode(src);
+      return invokeJDKBase64Codec(src, JDKBase64CodecType.URL_SAFE_DECODE);
     }
   }
 

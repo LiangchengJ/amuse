@@ -12,14 +12,14 @@ import java.security.MessageDigest;
 public abstract class HashFn {
   private HashFn() {}
 
-  public static MessageDigest msgDigestOf(HashFnType type)
+  private static MessageDigest msgDigestOf(HashFnType type)
       throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
     Class msgDigestClass = MessageDigest.class;
     Method getInstance = msgDigestClass.getDeclaredMethod("getInstance", String.class);
     return (MessageDigest) getInstance.invoke(msgDigestClass, type.getType());
   }
 
-  public static String invokeByType(HashFnType type, byte[] src) {
+  private static String invokeByType(HashFnType type, byte[] src) {
     try {
       MessageDigest msgDigest = msgDigestOf(type);
       msgDigest.update(src);
