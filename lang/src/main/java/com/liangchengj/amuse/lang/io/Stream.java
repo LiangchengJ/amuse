@@ -25,7 +25,7 @@ public final class Stream {
    * @throws IOException
    */
   private static void onReading(
-          IReadInputListener readInputListener, byte[] buf, int len, boolean finished)
+      IReadInputListener readInputListener, byte[] buf, int len, boolean finished)
       throws IOException {
     if (null != readInputListener) {
       readInputListener.onReading(Arrays.copyOf(buf, len), finished);
